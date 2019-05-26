@@ -6,7 +6,7 @@ import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.widget.ArrayAdapter
-import android.widget.Toast
+import com.bosarreyes.rodrigo.calculadorahoras.dao.DBHelper
 import kotlinx.android.synthetic.main.activity_main.*
 import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
@@ -19,9 +19,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var runnable: Runnable
     private lateinit var handler: Handler
-    private lateinit var paises: Array<String>
 
     private val c = Calendar.getInstance()
+    private val delay = 1000L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,8 +31,6 @@ class MainActivity : AppCompatActivity() {
 
         tvCurrentTime.text = currentTime
         tvTimeZone.text = c.timeZone.displayName
-
-        paises = resources.getStringArray(R.array.paises)
 
         // Nombre de los días
         val formatDias = DateFormatSymbols().weekdays
@@ -51,9 +49,8 @@ class MainActivity : AppCompatActivity() {
         tvDate.text = "$dia, $diaNum $mes, $anno"
 
         handler = Handler()
-        val delay = 1000L
 
-        runnable = object : Runnable {
+        runnable = object: Runnable {
             override fun run() {
                 changeTime()
                 handler.postDelayed(this, delay)
@@ -61,22 +58,28 @@ class MainActivity : AppCompatActivity() {
         }
         runnable.run()
 
-        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, paises)
-        spinnerPaises.adapter = adapter
-
-
         button.setOnClickListener {
-//            view -> showTimePicker()
-            view -> calcHora()
+            calcHora()
         }
 
         buttonTimepicker.setOnClickListener {
-            view -> showTimePicker()
+            showTimePicker()
+        }
+
+        // Carga la base de datos
+        runOnUiThread {
+            Runnable {
+                val db = DBHelper(this)
+                val wDB = db.writableDatabase
+                val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, db.getTodasCiudades(wDB))
+                spinnerPaises.adapter = adapter
+                spinnerPaisesDestino.adapter = adapter
+                db.close()
+            }.run()
         }
     }
 
     private fun showTimePicker() {
-//        changeTime()
         val picker = TimePickerDialog(this,
             TimePickerDialog.OnTimeSetListener{
                 view, hourOfDay, minute ->
@@ -90,7 +93,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun changeTime() {
-        var currentTime = getCurrentTime()
+        val currentTime = getCurrentTime()
 
         tvCurrentTime.text = currentTime
     }
@@ -122,7 +125,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun calcHora() {
-        Toast.makeText(this, BuildConfig.APIKey, Toast.LENGTH_LONG).show()
         // Obtiene el locale actual
         val locale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             resources.configuration.locales.get(0)
@@ -131,39 +133,36 @@ class MainActivity : AppCompatActivity() {
         }
         // Obtiene el día actual
         val actualDate = getFecha(locale)
-        // Obtiene la hora del tv
+        // Obtiene la hora del tv (hora del país de origen)
         val hora = textViewHora.text
 
-        // Obtiene la fecha actual y la hora que ha elegido el usuario
+        // Creamos un nuevo Date con la fecha y hora establecida por el usuario
         val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", locale)
         val inputDate = "$actualDate $hora"
         val date = inputFormat.parse(inputDate)
 
-        val paisSeleccionado = spinnerPaisesDestino.selectedItem
-        var timeZone:TimeZone = TimeZone.getDefault()
-
-        when(paisSeleccionado) {
-            "España" -> timeZone = TimeZone.getTimeZone("Europe/Madrid")
-            "Guatemala" -> timeZone = TimeZone.getTimeZone("America/Guatemala")
-            "México" -> timeZone = TimeZone.getTimeZone("America/Mexico_City")
-            "Colombia" -> timeZone = TimeZone.getTimeZone("America/Bogota")
-            "Argentina" -> timeZone = TimeZone.getTimeZone("America/Buenos_Aires")
-            "Venezuela" -> timeZone = TimeZone.getTimeZone("Africa/Algiers")
-        }
+        val paisSeleccionado = spinnerPaisesDestino.selectedItem.toString()
+        val timeZone: TimeZone = getTimezone(paisSeleccionado)
 
         val cal = Calendar.getInstance()
         cal.time = date
         val f = SimpleDateFormat("HH:mm", locale)
         f.timeZone = timeZone
 
-//        Log.d("Calendar xd", cal.time.toString())
-//        Log.d("Calendar xd", timeZone.id)
-//        Log.d("Calendar default", TimeZone.getDefault().id)
-//        Log.d("Calendar", f.format(cal.time))
-//        Log.d("getFecha", getFecha(locale))
         textViewResultado.text = f.format(cal.time)
     }
 
+    private fun getTimezone(paisSeleccionado: String): TimeZone {
+        val db = DBHelper(this)
+        val timezone = db.getTimezoneCiudad(db.writableDatabase, paisSeleccionado)
+
+        return TimeZone.getTimeZone(timezone)
+    }
+
+    /**
+     * Obtiene la fecha actual y la devuelve en un string con el formato yyyy-MM-dd
+     * @return fecha formateada
+     */
     private fun getFecha(locale: Locale): String {
         val date = Calendar.getInstance().time
         val fecha = SimpleDateFormat("yyyy-MM-dd", locale).format(date)
