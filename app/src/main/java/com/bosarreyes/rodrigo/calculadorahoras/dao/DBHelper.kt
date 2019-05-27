@@ -76,8 +76,26 @@ class DBHelper(private val context: Context):
             null
         )
         cursor.moveToFirst()
+        val tz = cursor.getString(0)
         cursor.close()
-        return cursor.getString(0)
+        return tz
+
+    }
+
+    fun getCiudadTimezone(db: SQLiteDatabase, timezone: String): String {
+        val cursor = db.query(
+            NOMBRE_TABLA,
+            arrayOf(COL_CIUDAD),
+            "$COL_TIMEZONE LIKE ?",
+            arrayOf(timezone),
+            null,
+            null,
+            null
+        )
+        cursor.moveToFirst()
+        val tz = cursor.getString(0)
+        cursor.close()
+        return tz
 
     }
 

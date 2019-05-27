@@ -5,6 +5,7 @@ import android.os.Build
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
+import android.util.Log
 import android.widget.ArrayAdapter
 import com.bosarreyes.rodrigo.calculadorahoras.dao.DBHelper
 import kotlinx.android.synthetic.main.activity_main.*
@@ -59,7 +60,8 @@ class MainActivity : AppCompatActivity() {
         runnable.run()
 
         button.setOnClickListener {
-            calcHora()
+            if(textViewHora.text != "HH:MM")
+                calcHora()
         }
 
         buttonTimepicker.setOnClickListener {
@@ -74,6 +76,7 @@ class MainActivity : AppCompatActivity() {
                 val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, db.getTodasCiudades(wDB))
                 spinnerPaises.adapter = adapter
                 spinnerPaisesDestino.adapter = adapter
+                spinnerPaises.setSelection(adapter.getPosition(db.getCiudadTimezone(db.readableDatabase, TimeZone.getDefault().id)))
                 db.close()
             }.run()
         }
